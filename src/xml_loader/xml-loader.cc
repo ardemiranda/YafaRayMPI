@@ -22,6 +22,11 @@
 
 #include <gui/yafqtapi.h>
 
+#ifdef USING_MPI
+	#include <yafraycore/imageOutputMpi.h>
+	#include <mpi.h>
+#endif
+
 using namespace::yafaray;
 
 int main(int argc, char *argv[])
@@ -193,9 +198,27 @@ int main(int argc, char *argv[])
 	
 	imageHandler_t *ih = env->createImageHandler("outFile", ihParams);
 
+	bool extInit;
 	if(ih)
 	{
-		out = new imageOutput_t(ih, outputPath, bx, by);
+#ifdef USING_MPI
+		extInit = MPI::Is_initialized();
+		if (! extInit) {
+			MPI::Init_thread(MPI::THREAD_MULTIPLE);
+		}
+
+		if (MPI::COMM_WORLD.Get_size() > 1)
+		{
+			out = new imageOutputMpi_t(ih, outputPath, bx, by);
+		}
+		else
+		{
+#endif
+			out = new imageOutput_t(ih, outputPath, bx, by);
+#ifdef USING_MPI
+		}
+#endif
+
 		if(!out) return 1;				
 	}
 	else return 1;
@@ -206,6 +229,12 @@ int main(int argc, char *argv[])
 	env->clearAll();
 
 	imageFilm_t *film = scene->getImageFilm();
+
+#ifdef USING_MPI
+	if (! extInit) {
+		MPI::Finalize();
+	}
+#endif
 
 	delete film;
 	delete out;

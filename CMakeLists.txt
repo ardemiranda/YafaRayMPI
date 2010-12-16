@@ -17,6 +17,7 @@ option(WITH_YAF_RUBY_BINDINGS "Enable the YafaRay Ruby bindings" OFF)
 option(BUILDRELEASE "Enable release mode building of YafaRay" OFF)
 option(DEBUG_BUILD "Enable debug build mode" OFF)
 option(EMBED_FONT_QT "Embed font for QT GUI (usefull for some buggy QT installations)" OFF)
+option(WITH_MPI "Enable MPI" ON)
 
 ###### Packages and Definitions #########
 
@@ -97,6 +98,13 @@ endif(DEBUG_BUILD)
 
 set(YAF_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/include ${CMAKE_BINARY_DIR})
 
+if(WITH_MPI)
+	find_package(MPI REQUIRED)
+	message("Using MPI: yes")
+else(WITH_MPI)
+	message("Using MPI: no")
+endif(WITH_MPI)
+
 
 if(NOT WIN32)
 	# installation directories
@@ -157,7 +165,15 @@ if (BUILDRELEASE)
 	add_definitions(-DRELEASE)
 endif (BUILDRELEASE)
 
+if (WITH_MPI)
+	add_definitions(-DUSING_MPI)
+endif (WITH_MPI)
+
 # Paths and flags configuration
+
+if (WITH_MPI)
+    SET(CMAKE_CXX_COMPILER "mpic++")
+endif(WITH_MPI)
 
 if(NOT WIN32)
 	set(YAF_PLUGIN_DIR ${YAF_LIB_DIR}/yafaray)

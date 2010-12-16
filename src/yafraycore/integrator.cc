@@ -38,6 +38,10 @@
 
 #include <sstream>
 
+//#ifdef USING_MPI
+#include <mpi.h>
+//#endif
+
 __BEGIN_YAFRAY
 
 #ifdef USING_THREADS
@@ -167,7 +171,45 @@ bool tiledIntegrator_t::renderPass(int samples, int offset, bool adaptive)
 	prePass(samples, offset, adaptive);
 	
 	int nthreads = scene->getNumThreads();
-	
+
+#ifdef USING_MPI
+	bool extInit = MPI::Is_initialized();
+	if (! extInit) {
+		MPI::Init_thread(MPI::THREAD_SINGLE);
+	}
+
+	int nodes_cnt = MPI::COMM_WORLD.Get_size();
+	if (nodes_cnt > 1)
+	{
+		AA_passes = 0;
+		Y_WARNING << "\nMPI DISABLE ANTIALISING\n";
+		int rank = MPI::COMM_WORLD.Get_rank();
+		int area_cnt = imageFilm->getAreaCnt();
+		int quantidadeAreasPorNo = ceil((float) area_cnt/(nodes_cnt-1));
+		int fimAreas = rank * quantidadeAreasPorNo;
+		int inicioAreas = fimAreas - quantidadeAreasPorNo;
+		int i = 0;
+		renderArea_t a;
+
+		MPI::COMM_WORLD.Barrier();
+		while(imageFilm->nextArea(a) )
+		{
+			if(scene->getSignals() & Y_SIG_ABORT) break;
+
+			if (rank == 0) {
+				imageFilm->finishArea(a);
+			} else if (i >= inicioAreas && i < fimAreas) {
+				preTile(a, samples, offset, adaptive, 0);
+				renderTile(a, samples, offset, adaptive, 0);
+				imageFilm->finishArea(a);
+			}
+			i++;
+		}
+	}
+	else
+	{
+#endif
+
 #ifdef USING_THREADS
 	if(nthreads>1)
 	{
@@ -204,6 +246,15 @@ bool tiledIntegrator_t::renderPass(int samples, int offset, bool adaptive)
 #ifdef USING_THREADS
 	}
 #endif
+
+#ifdef USING_MPI
+	}
+
+	if (! extInit) {
+		MPI::Finalize();
+	}
+#endif
+
 	return true; //hm...quite useless the return value :)
 }
 

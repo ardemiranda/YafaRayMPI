@@ -4,12 +4,24 @@
 #include <string>
 #include <iomanip>
 
+#ifdef USING_MPI
+	#include <mpi.h>
+#endif
+
 __BEGIN_YAFRAY
 
-#define printBar(progEmpty, progFull, per) \
-std::cout << "\r" << setColor(Green) << "INFO: " << \
-setColor(Red, true) << "[" << setColor(Green, true) << std::string(progFull, '#') << std::string(progEmpty, ' ') << setColor(Red, true) << "] " << \
-setColor() << "(" << setColor(Yellow, true) << per << "%" << setColor() << ")" << std::flush
+#ifdef USING_MPI
+	#define printBar(progEmpty, progFull, per) \
+	std::cout << "\r" << setColor(Green) << "INFO: " << \
+	"Rank -> " << MPI::COMM_WORLD.Get_rank() << " " << \
+	setColor(Red, true) << "[" << setColor(Green, true) << std::string(progFull, '#') << std::string(progEmpty, ' ') << setColor(Red, true) << "] " << \
+	setColor() << "(" << setColor(Yellow, true) << per << "%" << setColor() << ")" << std::flush
+#else
+	#define printBar(progEmpty, progFull, per) \
+	std::cout << "\r" << setColor(Green) << "INFO: " << \
+	setColor(Red, true) << "[" << setColor(Green, true) << std::string(progFull, '#') << std::string(progEmpty, ' ') << setColor(Red, true) << "] " << \
+	setColor() << "(" << setColor(Yellow, true) << per << "%" << setColor() << ")" << std::flush
+#endif
 
 ConsoleProgressBar_t::ConsoleProgressBar_t(int cwidth): width(cwidth), nSteps(0), doneSteps(0)
 {

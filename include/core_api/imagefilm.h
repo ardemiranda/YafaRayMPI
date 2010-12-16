@@ -121,6 +121,7 @@ class YAFRAYCORE_EXPORT imageFilm_t
 		void setCustomString(const std::string &custom);
 		void setUseParamsBadge(bool on = true) { drawParams = on; }
 		bool getUseParamsBadge() { return drawParams; }
+		int getAreaCnt() { return area_cnt; }
 
 		/*! Methods for rendering the parameters badge; Note that FreeType lib is needed to render text */
 		void drawRenderSettings();

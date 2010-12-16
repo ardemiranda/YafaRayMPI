@@ -350,7 +350,6 @@ void imageFilm_t::finishArea(renderArea_t &a)
 			{
 				if( !output->putPixel(i, j, (const float *)&col) ) abort=true;
 			}
-			
 		}
 	}
 
