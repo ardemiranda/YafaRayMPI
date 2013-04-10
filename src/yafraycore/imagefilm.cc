@@ -17,7 +17,7 @@
  *      You should have received a copy of the GNU Lesser General Public
  *      License along with this library; if not, write to the Free Software
  *      Foundation,Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *      
+ *
  */
 
 #include <core_api/imagefilm.h>
@@ -81,7 +81,7 @@ mnc2 = (6 - 2 * B)/6
 float Mitchell(float dx, float dy)
 {
 	float x = 2.f * fSqrt(dx*dx + dy*dy);
-	
+
 	if(x >= 2.f) return (0.f);
 
 	if(x >= 1.f) // from mitchell-netravali paper 1 <= |x| < 2
@@ -111,7 +111,7 @@ float Lanczos2(float dx, float dy)
 		float b = M_PI_2 * x;
 		return ((fSin(a) * fSin(b)) / (a*b));
 	}
-	
+
 	return 0.f;
 }
 
@@ -124,17 +124,17 @@ imageFilm_t::imageFilm_t (int width, int height, int xstart, int ystart, colorOu
 	cx1 = xstart + width;
 	cy1 = ystart + height;
 	filterTable = new float[FILTER_TABLE_SIZE * FILTER_TABLE_SIZE];
-	
+
 	image = new rgba2DImage_t(width, height);
 	densityImage = NULL;
 	estimateDensity = false;
 	depthMap = NULL;
 	dpimage = NULL;
-	
+
 	// fill filter table:
 	float *fTp = filterTable;
 	float scale = 1.f/(float)FILTER_TABLE_SIZE;
-	
+
 	filterFunc *ffunc=0;
 	switch(filt)
 	{
@@ -155,7 +155,7 @@ imageFilm_t::imageFilm_t (int width, int height, int xstart, int ystart, colorOu
 			++fTp;
 		}
 	}
-	
+
 	tableScale = 0.9999 * FILTER_TABLE_SIZE/filterw;
 	area_cnt = 0;
 
@@ -184,7 +184,7 @@ void imageFilm_t::init(int numPasses)
 		if(!densityImage) densityImage = new rgb2DImage_nw_t(w, h);
 		else densityImage->clear();
 	}
-	
+
 	// Setup the bucket splitter
 	if(split)
 	{
@@ -210,50 +210,57 @@ void imageFilm_t::initDepthMap()
 void imageFilm_t::nextPass(bool adaptive_AA, std::string integratorName)
 {
 	int n_resample=0;
-	
+
 	splitterMutex.lock();
 	next_area = 0;
 	splitterMutex.unlock();
 	nPass++;
 	std::stringstream passString;
-	
+
 	if(flags) flags->clear();
 	else flags = new tiledBitArray2D_t<3>(w, h, true);
-	
+
 	if(adaptive_AA && AA_thesh > 0.f)
 	{
 		for(int y=0; y<h-1; ++y)
 		{
-			for(int x=0; x<w-1; ++x)
+			for(int x = 0; x < w-1; ++x)
 			{
-				bool needAA=false;
-				float c=(*image)(x, y).normalized().abscol2bri();
-				if(std::fabs(c-(*image)(x+1, y).normalized().col2bri()) >= AA_thesh)
+				bool needAA = false;
+				float c = (*image)(x, y).normalized().abscol2bri();
+				if(std::fabs(c - (*image)(x+1, y).normalized().col2bri()) >= AA_thesh)
 				{
 					needAA=true; flags->setBit(x+1, y);
 				}
-				if(std::fabs(c-(*image)(x, y+1).normalized().col2bri()) >= AA_thesh)
+				if(std::fabs(c - (*image)(x, y+1).normalized().col2bri()) >= AA_thesh)
 				{
 					needAA=true; flags->setBit(x, y+1);
 				}
-				if(std::fabs(c-(*image)(x+1, y+1).normalized().col2bri()) >= AA_thesh)
+				if(std::fabs(c - (*image)(x+1, y+1).normalized().col2bri()) >= AA_thesh)
 				{
 					needAA=true; flags->setBit(x+1, y+1);
 				}
-				if(x > 0 && std::fabs(c-(*image)(x-1, y+1).normalized().col2bri()) >= AA_thesh)
+				if(x > 0 && std::fabs(c - (*image)(x-1, y+1).normalized().col2bri()) >= AA_thesh)
 				{
 					needAA=true; flags->setBit(x-1, y+1);
 				}
 				if(needAA)
 				{
 					flags->setBit(x, y);
-					
+
 					if(interactive && showMask)
 					{
-						color_t pixcol(c);
+						color_t pix = (*image)(x, y).normalized();
+						color_t pixcol(0.f);
+
+						if(pix.R < pix.G && pix.R < pix.B)
+							pixcol.set(0.7f, c, c);
+						else
+							pixcol.set(c, 0.7f, c);
+
 						output->putPixel(x, y, (const float *)&pixcol, false);
 					}
-					
+
 					++n_resample;
 				}
 			}
@@ -263,13 +270,13 @@ void imageFilm_t::nextPass(bool adaptive_AA, std::string integratorName)
 	{
 		n_resample = h*w;
 	}
-	
+
 	if(interactive) output->flush();
 
 	passString << "Rendering pass " << nPass << " of " << nPasses << ", resampling " << n_resample << " pixels.";
 
 	Y_INFO << integratorName << ": " << passString.str() << yendl;
-	
+
 	if(pbar)
 	{
 		pbar->init(area_cnt);
@@ -281,23 +288,23 @@ void imageFilm_t::nextPass(bool adaptive_AA, std::string integratorName)
 bool imageFilm_t::nextArea(renderArea_t &a)
 {
 	if(abort) return false;
-	
+
 	int ifilterw = (int) ceil(filterw);
-	
+
 	if(split)
 	{
 		int n;
 		splitterMutex.lock();
 		n = next_area++;
 		splitterMutex.unlock();
-		
+
 		if(	splitter->getArea(n, a) )
 		{
 			a.sx0 = a.X + ifilterw;
 			a.sx1 = a.X + a.W - ifilterw;
 			a.sy0 = a.Y + ifilterw;
 			a.sy1 = a.Y + a.H - ifilterw;
-			
+
 			if(interactive)
 			{
 				outMutex.lock();
@@ -329,10 +336,10 @@ bool imageFilm_t::nextArea(renderArea_t &a)
 void imageFilm_t::finishArea(renderArea_t &a)
 {
 	outMutex.lock();
-	
+
 	int end_x = a.X+a.W-cx0, end_y = a.Y+a.H-cy0;
 	colorA_t col;
-	
+
 	for(int j=a.Y-cy0; j<end_y; ++j)
 	{
 		for(int i=a.X-cx0; i<end_x; ++i)
@@ -341,6 +348,8 @@ void imageFilm_t::finishArea(renderArea_t &a)
 			col.clampRGB0();
 
 			if(correctGamma) col.gammaAdjust(gamma);
+
+			if(premultAlpha) col.alphaPremultiply();
 
 			if(depthMap)
 			{
@@ -371,7 +380,7 @@ void imageFilm_t::flush(int flags, colorOutput_t *out)
 	Y_INFO << "imageFilm: Flushing buffer..." << yendl;
 
 	colorOutput_t *colout = out ? out : output;
-	
+
 	if (drawParams) drawRenderSettings();
 
 #ifndef HAVE_FREETYPE
@@ -393,17 +402,19 @@ void imageFilm_t::flush(int flags, colorOutput_t *out)
 			else col = colorA_t(0.f);
 
 			if(estimateDensity && (flags & IF_DENSITYIMAGE)) col += (*densityImage)(i, j) * multi;
-			
+
 			col.clampRGB0();
-			
+
 			if(correctGamma) col.gammaAdjust(gamma);
-			
+
 			if(drawParams && h - j <= dpHeight && dpimage)
 			{
 				colorA_t &dpcol = (*dpimage)(i, k);
 				col = colorA_t( alphaBlend(col, dpcol, dpcol.getA()), std::max(col.getA(), dpcol.getA()) );
 			}
-			
+
+			if(premultAlpha) col.alphaPremultiply();
+
 			if(depthMap)
 			{
 				colout->putPixel(i, j, (const float*)&col, true, true, (*depthMap)(i, j).normalized());
@@ -413,7 +424,7 @@ void imageFilm_t::flush(int flags, colorOutput_t *out)
 				colout->putPixel(i, j, (const float*)&col);
 			}
 		}
-		
+
 		if(drawParams && h - j <= dpHeight) k++;
 	}
 
@@ -435,7 +446,7 @@ bool imageFilm_t::doMoreSamples(int x, int y) const
 void imageFilm_t::addSample(const colorA_t &c, int x, int y, float dx, float dy, const renderArea_t *a)
 {
 	colorA_t col = c;
-	
+
 	if(clamp) col.clampRGB01();
 
 	int dx0, dx1, dy0, dy1, x0, x1, y0, y1;
@@ -468,7 +479,7 @@ void imageFilm_t::addSample(const colorA_t &c, int x, int y, float dx, float dy,
 
 	x0 = x+dx0; x1 = x+dx1;
 	y0 = y+dy0; y1 = y+dy1;
-	
+
 	imageMutex.lock();
 
 	for (int j = y0; j <= y1; ++j)
@@ -480,10 +491,11 @@ void imageFilm_t::addSample(const colorA_t &c, int x, int y, float dx, float dy,
 			float filterWt = filterTable[offset];
 			// update pixel values with filtered sample contribution
 			pixel_t &pixel = (*image)(i - cx0, j - cy0);
-			
-			if(premultAlpha) pixel.col += (col * filterWt) * col.A;
-			else pixel.col += (col * filterWt);
-			
+
+            if(premultAlpha) col.alphaPremultiply();
+
+            pixel.col += (col * filterWt);
+
 			pixel.weight += filterWt;
 		}
 	}
@@ -523,7 +535,7 @@ void imageFilm_t::addDepthSample(int chan, float val, int x, int y, float dx, fl
 
 	x0 = x+dx0; x1 = x+dx1;
 	y0 = y+dy0; y1 = y+dy1;
-	
+
 	depthMapMutex.lock();
 
 	for (int j = y0; j <= y1; ++j)
@@ -535,19 +547,19 @@ void imageFilm_t::addDepthSample(int chan, float val, int x, int y, float dx, fl
 			float filterWt = filterTable[offset];
 			// update pixel values with filtered sample contribution
 			pixelGray_t &pixel = (*depthMap)(i - cx0, j - cy0);
-			
+
 			pixel.val += (val * filterWt);
 			pixel.weight += filterWt;
 		}
 	}
-	
+
 	depthMapMutex.unlock();
 }
 
 void imageFilm_t::addDensitySample(const color_t &c, int x, int y, float dx, float dy, const renderArea_t *a)
 {
 	if(!estimateDensity) return;
-	
+
 	int dx0, dx1, dy0, dy1, x0, x1, y0, y1;
 
 	// get filter extent and make sure we don't leave image area:
@@ -556,8 +568,8 @@ void imageFilm_t::addDensitySample(const color_t &c, int x, int y, float dx, flo
 	dx1 = std::min(cx1-x-1, Round2Int( (double)dx + filterw - 1.0));
 	dy0 = std::max(cy0-y,   Round2Int( (double)dy - filterw));
 	dy1 = std::min(cy1-y-1, Round2Int( (double)dy + filterw - 1.0));
-	
-	
+
+
 	int xIndex[MAX_FILTER_SIZE+1], yIndex[MAX_FILTER_SIZE+1];
 
 	double x_offs = dx - 0.5;
@@ -576,7 +588,7 @@ void imageFilm_t::addDensitySample(const color_t &c, int x, int y, float dx, flo
 
 	x0 = x+dx0; x1 = x+dx1;
 	y0 = y+dy0; y1 = y+dy1;
-	
+
 	densityImageMutex.lock();
 
 	for (int j = y0; j <= y1; ++j)
@@ -589,9 +601,9 @@ void imageFilm_t::addDensitySample(const color_t &c, int x, int y, float dx, flo
 			pixel += c * filterTable[offset];
 		}
 	}
-	
+
 	++numSamples;
-	
+
 	densityImageMutex.unlock();
 }
 
@@ -654,7 +666,7 @@ void imageFilm_t::drawFontBitmap( FT_Bitmap* bitmap, int x, int y)
 			if ( i >= w || j >= h ) continue;
 
 			tmpBuf = bitmap->buffer[q * bitmap->width + p];
-			
+
 			if (tmpBuf > 0)
 			{
 				colorA_t &col = (*dpimage)(i, j);
@@ -670,9 +682,9 @@ void imageFilm_t::drawFontBitmap( FT_Bitmap* bitmap, int x, int y)
 void imageFilm_t::drawRenderSettings()
 {
 	if(dpimage) return;
-	
+
 	dpHeight = 30;
-	
+
 	dpimage = new rgba2DImage_nw_t(w, dpHeight);
 #ifdef HAVE_FREETYPE
 	FT_Library library;
@@ -688,9 +700,9 @@ void imageFilm_t::drawRenderSettings()
 #endif
 
 	std::stringstream ss;
-	
+
 	ss << "YafaRay (" << version << ")";
-	
+
 	ss << std::setprecision(2);
 	double times = gTimer.getTime("rendert");
 	int timem, timeh;
@@ -701,7 +713,7 @@ void imageFilm_t::drawRenderSettings()
 	ss << " " << times << "s";
 	ss << " | " << aaSettings;
 	ss << "\nLighting: " << integratorSettings;
-	
+
 	if(!customString.empty())
 	{
 		ss << " | " << customString;
@@ -748,7 +760,7 @@ void imageFilm_t::drawRenderSettings()
 	ihParams["for_output"] = false;
 
 	imageHandler_t *logo = env->createImageHandler("logoLoader", ihParams, false);
-	
+
 	if(logo && logo->loadFromMemory(yafLogoTiny, yafLogoTiny_size))
 	{
 		int lx, ly;
@@ -760,14 +772,14 @@ void imageFilm_t::drawRenderSettings()
 		for ( lx = 0; lx < imWidth; lx++ )
 			for ( ly = 0; ly < imHeight; ly++ )
 				(*dpimage)(lx, ly) = logo->getPixel(lx, ly);
-		
+
 		delete logo;
 	}
 
 	// Draw the dark bar at the bottom
 	float bgAlpha = 0.4f;
 	color_t bgColor(0.f);
-	
+
 	for ( int x = logoWidth; x < w; x++ )
 	{
 		for ( int y = 0; y < dpHeight; y++ )
@@ -775,11 +787,11 @@ void imageFilm_t::drawRenderSettings()
 			(*dpimage)(x, y) = colorA_t(bgColor, bgAlpha);
 		}
 	}
-#ifdef HAVE_FREETYPE	
+#ifdef HAVE_FREETYPE
 	// The pen position in 26.6 cartesian space coordinates
 	pen.x = textOffsetX * 64;
 	pen.y = textOffsetY * 64;
-	
+
 	// Draw the text
 	for ( size_t n = 0; n < text.size(); n++ )
 	{
@@ -799,7 +811,7 @@ void imageFilm_t::drawRenderSettings()
 			Y_ERROR << "imageFilm: FreeType Couldn't load the glyph image for: '" << text[n] << "'!" << yendl;
 			continue;
 		}
-		
+
 		// Render the glyph into the slot
 		FT_Render_Glyph( slot, FT_RENDER_MODE_NORMAL );
 
@@ -810,7 +822,7 @@ void imageFilm_t::drawRenderSettings()
 		pen.x += slot->advance.x;
 		pen.y += slot->advance.y;
 	}
-	
+
 	// Cleanup
 	FT_Done_Face    ( face );
 	FT_Done_FreeType( library );

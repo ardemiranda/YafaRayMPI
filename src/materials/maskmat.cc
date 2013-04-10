@@ -36,7 +36,7 @@ maskMat_t::maskMat_t(const material_t *m1, const material_t *m2, CFLOAT thresh):
 }
 
 #define PTR_ADD(ptr,sz) ((char*)ptr+(sz))
-void maskMat_t::initBSDF(const renderState_t &state, const surfacePoint_t &sp, BSDF_t &bsdfTypes)const
+void maskMat_t::initBSDF(const renderState_t &state, surfacePoint_t &sp, BSDF_t &bsdfTypes)const
 {
 	nodeStack_t stack(state.userdata);
 	evalNodes(state, sp, allNodes, stack);
@@ -152,8 +152,8 @@ material_t* maskMat_t::factory(paraMap_t &params, std::list< paraMap_t > &eparam
 	{
 		if(params.getParam("mask", name))
 		{
-			std::map<std::string,shaderNode_t *>::const_iterator i=mat->shader_table.find(*name);
-			if(i!=mat->shader_table.end()){ mat->mask = i->second; roots.push_back(mat->mask); }
+			std::map<std::string,shaderNode_t *>::const_iterator i=mat->mShadersTable.find(*name);
+			if(i!=mat->mShadersTable.end()){ mat->mask = i->second; roots.push_back(mat->mask); }
 			else
 			{
 				Y_ERROR << "MaskMat: Mask shader node '" << *name << "' does not exist!" << yendl;

@@ -30,7 +30,7 @@ bound_t sphere_t::getBound() const
 	return bound_t(center - r, center + r);
 }
 
-bool sphere_t::intersect(const ray_t &ray, PFLOAT *t, void *userdata) const
+bool sphere_t::intersect(const ray_t &ray, PFLOAT *t, intersectData_t &data) const
 {
 	vector3d_t vf = ray.from - center;
 	PFLOAT ea = ray.dir*ray.dir;
@@ -52,7 +52,7 @@ bool sphere_t::intersect(const ray_t &ray, PFLOAT *t, void *userdata) const
 	return true;
 }
 
-void sphere_t::getSurface(surfacePoint_t &sp, const point3d_t &hit, void *userdata) const
+void sphere_t::getSurface(surfacePoint_t &sp, const point3d_t &hit, intersectData_t &data) const
 {
 	vector3d_t normal = hit - center;
 	sp.orcoP = normal;
@@ -65,7 +65,7 @@ void sphere_t::getSurface(surfacePoint_t &sp, const point3d_t &hit, void *userda
 	sp.P = hit;
 	createCS(sp.N, sp.NU, sp.NV);
 	sp.U = atan2(normal.y, normal.x)*M_1_PI + 1;
-	sp.V = 1.f - acos(normal.z)*M_1_PI;
+	sp.V = 1.f - fAcos(normal.z)*M_1_PI;
 	sp.light = 0;
 }
 

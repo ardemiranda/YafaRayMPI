@@ -24,9 +24,6 @@
 #include <core_api/environment.h>
 
 #ifdef _WIN32
-	#ifndef __MINGW32__
-		#define NOMINMAX
-	#endif
 	#include <io.h>
 	#include <windows.h>
 #endif
@@ -53,9 +50,9 @@ __BEGIN_YAFRAY
 #define Y_ERROR_ENV Y_ERROR ENV_TAG
 #define Y_WARN_ENV Y_WARNING ENV_TAG
 
-#define WarnExist Y_WARN_ENV << "Sorry, " << pname << " already exists!" << yendl
+#define WarnExist Y_WARN_ENV << "Sorry, " << pname << " \"" << name << "\" already exists!" << yendl
 
-#define ErrNoType Y_ERROR_ENV << "Type of " << pname << " not specified!" << yendl
+#define ErrNoType Y_ERROR_ENV << pname << " type not specified for \"" << name << "\" node!" << yendl
 #define ErrUnkType(t) Y_ERROR_ENV << "Don't know how to create " << pname << " of type '" << t << "'!" << yendl
 #define ErrOnCreate(t) Y_ERROR_ENV << "No " << pname << " was constructed by plugin '" << t << "'!" << yendl
 
@@ -143,7 +140,7 @@ bool renderEnvironment_t::getPluginPath(std::string &path)
 	HKEY hkey;
 	DWORD dwType, dwSize;
 	
-	if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,"Software\\YafRay Team\\YafaRay",0,KEY_READ,&hkey)==ERROR_SUCCESS)
+	if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,"Software\\YafaRay Team\\YafaRay",0,KEY_READ,&hkey)==ERROR_SUCCESS)
 	{
 		dwType = REG_EXPAND_SZ;
 	 	dwSize = MAX_PATH;
@@ -168,7 +165,7 @@ bool renderEnvironment_t::getPluginPath(std::string &path)
 	else Y_ERROR_ENV << "Couldn't find registry key." << yendl;
 
 	Y_ERROR << "Please fix your registry. Maybe you need add/modify" << yendl; 
-	Y_ERROR << "HKEY_LOCAL_MACHINE\\Software\\YafRay Team\\YafRay\\InstallDir" << yendl;
+	Y_ERROR << "HKEY_LOCAL_MACHINE\\Software\\YafaRay Team\\YafaRay\\InstallDir" << yendl;
 	Y_ERROR << "key at registry. You can use \"regedit.exe\" to adjust it at" << yendl;
 	Y_ERROR << "your own risk. If you are unsure, reinstall YafaRay" << yendl;
 

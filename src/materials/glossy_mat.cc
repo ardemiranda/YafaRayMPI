@@ -31,7 +31,7 @@ class glossyMat_t: public nodeMaterial_t
 {
 	public:
 		glossyMat_t(const color_t &col, const color_t &dcol, float reflect, float diff, float expo, bool as_diffuse);
-		virtual void initBSDF(const renderState_t &state, const surfacePoint_t &sp, BSDF_t &bsdfTypes)const;
+        virtual void initBSDF(const renderState_t &state, surfacePoint_t &sp, BSDF_t &bsdfTypes)const;
 		virtual color_t eval(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, const vector3d_t &wi, BSDF_t bsdfs)const;
 		virtual color_t sample(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, vector3d_t &wi, sample_t &s, float &W)const;
 		virtual float pdf(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, const vector3d_t &wi, BSDF_t bsdfs)const;
@@ -79,7 +79,7 @@ glossyMat_t::glossyMat_t(const color_t &col, const color_t &dcol, float reflect,
 	bsdfFlags |= as_diffuse ? (BSDF_DIFFUSE | BSDF_REFLECT) : (BSDF_GLOSSY | BSDF_REFLECT);
 }
 
-void glossyMat_t::initBSDF(const renderState_t &state, const surfacePoint_t &sp, BSDF_t &bsdfTypes)const
+void glossyMat_t::initBSDF(const renderState_t &state, surfacePoint_t &sp, BSDF_t &bsdfTypes)const
 {
 	MDat_t *dat = (MDat_t *)state.userdata;
 	dat->stack = (char*)state.userdata + sizeof(MDat_t);
@@ -120,12 +120,12 @@ float glossyMat_t::OrenNayar(const vector3d_t &wi, const vector3d_t &wo, const v
 	if(cos_to >= cos_ti)
 	{
 		sin_alpha = fSqrt(1.f - cos_ti*cos_ti);
-		tan_beta = fSqrt(1.f - cos_to*cos_to) / cos_to;
+		tan_beta = fSqrt(1.f - cos_to*cos_to) / ((cos_to == 0.f)?1e-8f:cos_to); // white (black on windows) dots fix for oren-nayar, could happen with bad normals
 	}
 	else
 	{
 		sin_alpha = fSqrt(1.f - cos_to*cos_to);
-		tan_beta = fSqrt(1.f - cos_ti*cos_ti) / cos_ti;
+		tan_beta = fSqrt(1.f - cos_ti*cos_ti) / ((cos_ti == 0.f)?1e-8f:cos_ti); // white (black on windows) dots fix for oren-nayar, could happen with bad normals
 	}
 	
 	return orenA + orenB * maxcos_f * sin_alpha * tan_beta;
@@ -254,7 +254,7 @@ color_t glossyMat_t::sample(const renderState_t &state, const surfacePoint_t &sp
 			cos_wo_H = wo*H;
 			if ( cos_wo_H < 0.f )
 			{
-				H = reflect_plane(N, H);
+				H.reflect(N);
 				cos_wo_H = wo*H;
 			}
 			// Compute incident direction by reflecting wo about H
@@ -275,7 +275,7 @@ color_t glossyMat_t::sample(const renderState_t &state, const surfacePoint_t &sp
 			cos_wo_H = wo*H;
 			if ( cos_wo_H < 0.f )
 			{
-				H = reflect_plane(N, H);
+				H.reflect(N);
 				cos_wo_H = wo*H;
 			}
 			// Compute incident direction by reflecting wo about H
@@ -392,7 +392,6 @@ material_t* glossyMat_t::factory(paraMap_t &params, std::list< paraMap_t > &para
 	
 	std::vector<shaderNode_t *> roots;
 	std::map<std::string, shaderNode_t *> nodeList;
-	std::map<std::string, shaderNode_t *>::iterator actNode;
 	
 	// Prepare our node list
 	nodeList["diffuse_shader"] = NULL;
@@ -402,20 +401,7 @@ material_t* glossyMat_t::factory(paraMap_t &params, std::list< paraMap_t > &para
 	
 	if(mat->loadNodes(paramList, render))
 	{
-		for(actNode = nodeList.begin(); actNode != nodeList.end(); actNode++)
-		{
-			if(params.getParam(actNode->first, name))
-			{
-				std::map<std::string,shaderNode_t *>::const_iterator i = mat->shader_table.find(*name);
-				
-				if(i!=mat->shader_table.end())
-				{
-					actNode->second = i->second;
-					roots.push_back(actNode->second);
-				}
-				else Y_WARNING << "Glossy: Shader node " << actNode->first << " '" << *name << "' does not exist!" << yendl;
-			}
-		}
+        mat->parseNodes(params, roots, nodeList);
 	}
 	else Y_ERROR << "Glossy: loadNodes() failed!" << yendl;
 

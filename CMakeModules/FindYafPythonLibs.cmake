@@ -23,7 +23,10 @@
 # (To distributed this file outside of CMake, substitute the full
 #  License text for the above reference.)
 
+# Modifications done to the original script by Rodrigo Placencia (DarkTide) to met YafaRay's needs
+
 INCLUDE(CMakeFindFrameworks)
+
 # Search for the python framework on Apple.
 CMAKE_FIND_FRAMEWORKS(Python)
 
@@ -33,17 +36,22 @@ ELSE(NOT REQUIRED_PYTHON_VERSION)
   SET(_CURRENT_VERSION ${REQUIRED_PYTHON_VERSION})
 ENDIF(NOT REQUIRED_PYTHON_VERSION)
 
+UNSET(PYTHON_DEBUG_LIBRARY CACHE)
+UNSET(PYTHON_LIBRARY CACHE)
+UNSET(PYTHON_INCLUDE_DIR CACHE)
+
 STRING(REPLACE "." "" _CURRENT_VERSION_NO_DOTS ${_CURRENT_VERSION})
+
 IF(WIN32)
   FIND_LIBRARY(PYTHON_DEBUG_LIBRARY
-    NAMES python${_CURRENT_VERSION_NO_DOTS}_d python
+    NAMES python${_CURRENT_VERSION_NO_DOTS}_d python${_CURRENT_VERSION}m_d python${_CURRENT_VERSION}mu_d python
     PATHS
     [HKEY_LOCAL_MACHINE\\SOFTWARE\\Python\\PythonCore\\${_CURRENT_VERSION}\\InstallPath]/libs/Debug
     [HKEY_LOCAL_MACHINE\\SOFTWARE\\Python\\PythonCore\\${_CURRENT_VERSION}\\InstallPath]/libs )
 ENDIF(WIN32)
 
 FIND_LIBRARY(PYTHON_LIBRARY
-  NAMES python${_CURRENT_VERSION_NO_DOTS} python${_CURRENT_VERSION}
+  NAMES python${_CURRENT_VERSION_NO_DOTS} python${_CURRENT_VERSION} python${_CURRENT_VERSION}m python${_CURRENT_VERSION}mu
   PATHS
     [HKEY_LOCAL_MACHINE\\SOFTWARE\\Python\\PythonCore\\${_CURRENT_VERSION}\\InstallPath]/libs
   PATH_SUFFIXES
@@ -51,13 +59,6 @@ FIND_LIBRARY(PYTHON_LIBRARY
   # Avoid finding the .dll in the PATH.  We want the .lib.
   NO_SYSTEM_ENVIRONMENT_PATH
 )
-
-# For backward compatibility, honour value of PYTHON_INCLUDE_PATH, if 
-# PYTHON_INCLUDE_DIR is not set.
-IF(DEFINED PYTHON_INCLUDE_PATH AND NOT DEFINED PYTHON_INCLUDE_DIR)
-  SET(PYTHON_INCLUDE_DIR "${PYTHON_INCLUDE_PATH}" CACHE PATH
-    "Path to where Python.h is found" FORCE)
-ENDIF(DEFINED PYTHON_INCLUDE_PATH AND NOT DEFINED PYTHON_INCLUDE_DIR)
 
 SET(PYTHON_FRAMEWORK_INCLUDES)
 IF(Python_FRAMEWORKS AND NOT PYTHON_INCLUDE_DIR)
@@ -73,7 +74,7 @@ FIND_PATH(PYTHON_INCLUDE_DIR
     ${PYTHON_FRAMEWORK_INCLUDES}
     [HKEY_LOCAL_MACHINE\\SOFTWARE\\Python\\PythonCore\\${_CURRENT_VERSION}\\InstallPath]/include
   PATH_SUFFIXES
-    python${_CURRENT_VERSION}
+    python${_CURRENT_VERSION} python${_CURRENT_VERSION}m python${_CURRENT_VERSION}mu
 )
 
 # For backward compatibility, set PYTHON_INCLUDE_PATH, but make it internal.
@@ -106,9 +107,23 @@ ENDIF(Python_FRAMEWORKS)
 # cache entries because they are meant to specify the location of a single
 # library. We now set the variables listed by the documentation for this
 # module.
-SET(PYTHON_INCLUDE_DIRS "${PYTHON_INCLUDE_DIR}")
-SET(PYTHON_LIBRARIES "${PYTHON_LIBRARY}")
-SET(PYTHON_DEBUG_LIBRARIES "${PYTHON_DEBUG_LIBRARY}")
+if(WITH_OSX_ADDON)
+	# for Blender2.5 OSX we need to link to the BF_python libs build by blender ! added a switch for a choice "blender-/general use" - Jens
+	if (NOT YAF_OSX_PYTHON_INCLUDE_DIR)
+		SET(PYTHON_INCLUDE_DIRS ${YAF_USER_INCLUDE_DIRS}/python3.2)
+	else (NOT YAF_OSX_PYTHON_LIB)
+		SET(PYTHON_INCLUDE_DIR ${YAF_OSX_PYTHON_INCLUDE_DIR})
+	endif (NOT YAF_OSX_PYTHON_INCLUDE_DIR)
+	if (NOT YAF_OSX_PYTHON_LIB)
+		SET(PYTHON_LIBRARIES ${YAF_USER_LIBRARY_DIRS}/BF_pythonlibs/libbf_python_ext.a ${YAF_USER_LIBRARY_DIRS}/BF_pythonlibs/libbf_python.a)
+	else (NOT YAF_OSX_PYTHON_LIB)
+		SET(PYTHON_LIBRARIES ${YAF_OSX_PYTHON_LIB})
+	endif (NOT YAF_OSX_PYTHON_LIB)
+else(WITH_OSX_ADDON)
+	SET(PYTHON_INCLUDE_DIRS "${PYTHON_INCLUDE_DIR}")
+	SET(PYTHON_LIBRARIES "${PYTHON_LIBRARY}")
+	SET(PYTHON_DEBUG_LIBRARIES "${PYTHON_DEBUG_LIBRARY}")
+endif(WITH_OSX_ADDON)
 
 
 INCLUDE(FindPackageHandleStandardArgs)

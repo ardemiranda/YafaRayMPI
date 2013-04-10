@@ -29,7 +29,7 @@ class glassMat_t: public nodeMaterial_t
 {
 	public:
 		glassMat_t(float IOR, color_t filtC, const color_t &srcol, double disp_pow, bool fakeS);
-		virtual void initBSDF(const renderState_t &state, const surfacePoint_t &sp, unsigned int &bsdfTypes)const;
+        virtual void initBSDF(const renderState_t &state, surfacePoint_t &sp, unsigned int &bsdfTypes)const;
 		virtual color_t eval(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, const vector3d_t &wl, BSDF_t bsdfs)const {return color_t(0.0);}
 		virtual color_t sample(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, vector3d_t &wi, sample_t &s, float &W)const;
 		virtual float pdf(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, const vector3d_t &wi, BSDF_t bsdfs)const {return 0.f;}
@@ -68,7 +68,7 @@ glassMat_t::glassMat_t(float IOR, color_t filtC, const color_t &srcol, double di
 	}
 }
 
-void glassMat_t::initBSDF(const renderState_t &state, const surfacePoint_t &sp, BSDF_t &bsdfTypes)const
+void glassMat_t::initBSDF(const renderState_t &state, surfacePoint_t &sp, BSDF_t &bsdfTypes)const
 {
 	nodeStack_t stack(state.userdata);
 	if(bumpS) evalBump(stack, state, sp, bumpS);
@@ -115,7 +115,8 @@ color_t glassMat_t::sample(const renderState_t &state, const surfacePoint_t &sp,
 			}
 			else if( matches(s.flags, BSDF_SPECULAR|BSDF_REFLECT) )
 			{
-				wi = reflect_plane(N, wo);
+				wi = wo;
+				wi.reflect(N);
 				s.pdf = pKr;
 				s.sampledFlags = BSDF_SPECULAR | BSDF_REFLECT;
 				W = 1.f;
@@ -124,7 +125,8 @@ color_t glassMat_t::sample(const renderState_t &state, const surfacePoint_t &sp,
 		}
 		else if( matches(s.flags, BSDF_SPECULAR|BSDF_REFLECT) ) //total inner reflection
 		{
-			wi = reflect_plane(N, wo);
+			wi = wo;
+			wi.reflect(N);
 			s.sampledFlags = BSDF_SPECULAR | BSDF_REFLECT;
 			W = 1.f;
 			return 1.f; //color_t(1.f/std::fabs(sp.N*wi));
@@ -153,7 +155,8 @@ color_t glassMat_t::sample(const renderState_t &state, const surfacePoint_t &sp,
 			}
 			else if( matches(s.flags, BSDF_SPECULAR|BSDF_REFLECT) ) //total inner reflection
 			{
-				wi = reflect_plane(N, wo);
+				wi = wo;
+				wi.reflect(N);
 				s.pdf = pKr;
 				s.sampledFlags = BSDF_SPECULAR | BSDF_REFLECT;
 				if(s.reverse)
@@ -167,7 +170,8 @@ color_t glassMat_t::sample(const renderState_t &state, const surfacePoint_t &sp,
 		}
 		else if( matches(s.flags, BSDF_SPECULAR|BSDF_REFLECT) )//total inner reflection
 		{
-			wi = reflect_plane(N, wo);
+			wi = wo;
+			wi.reflect(N);
 			s.sampledFlags = BSDF_SPECULAR | BSDF_REFLECT;
 			//color_t tir_col(1.f/std::fabs(sp.N*wi));
 			if(s.reverse)
@@ -229,9 +233,10 @@ void glassMat_t::getSpecular(const renderState_t &state, const surfacePoint_t &s
 		else refr = false; // in this case, we need to sample dispersion, i.e. not considered specular
 		// accounting for fresnel reflection when leaving refractive material is a real performance
 		// killer as rays keep bouncing inside objects and contribute little after few bounces, so limit we it:
-		if(outside || state.raylevel < 2)
+		if(outside || state.raylevel < 3)
 		{
-			dir[0] = reflect_plane(N, wo);
+			dir[0] = wo;
+			dir[0].reflect(N);
 			col[0] = (mirColS ? mirColS->getColor(stack) : specRefCol) * Kr;
 			refl = true;
 		}
@@ -240,7 +245,8 @@ void glassMat_t::getSpecular(const renderState_t &state, const surfacePoint_t &s
 	else //total inner reflection
 	{
 		col[0] = color_t(1.f);
-		dir[0] = reflect_plane(N, wo);
+		dir[0] = wo;
+		dir[0].reflect(N);
 		refl = true;
 		refr = false;
 	}
@@ -299,7 +305,6 @@ material_t* glassMat_t::factory(paraMap_t &params, std::list< paraMap_t > &param
 
 	std::vector<shaderNode_t *> roots;
 	std::map<std::string, shaderNode_t *> nodeList;
-	std::map<std::string, shaderNode_t *>::iterator actNode;
 	
 	// Prepare our node list
 	nodeList["mirror_color_shader"] = NULL;
@@ -307,20 +312,7 @@ material_t* glassMat_t::factory(paraMap_t &params, std::list< paraMap_t > &param
 	
 	if(mat->loadNodes(paramList, render))
 	{
-		for(actNode = nodeList.begin(); actNode != nodeList.end(); actNode++)
-		{
-			if(params.getParam(actNode->first, name))
-			{
-				std::map<std::string,shaderNode_t *>::const_iterator i = mat->shader_table.find(*name);
-				
-				if(i!=mat->shader_table.end())
-				{
-					actNode->second = i->second;
-					roots.push_back(actNode->second);
-				}
-				else Y_WARNING << "Glass: Shader node " << actNode->first << " '" << *name << "' does not exist!" << yendl;
-			}
-		}
+       mat->parseNodes(params, roots, nodeList);
 	}
 	else Y_ERROR << "Glass: loadNodes() failed!" << yendl;
 
@@ -357,7 +349,7 @@ class mirrorMat_t: public material_t
 		refCol = rCol * refVal;
 		bsdfFlags = BSDF_SPECULAR;
 	}
-	virtual void initBSDF(const renderState_t &state, const surfacePoint_t &sp, unsigned int &bsdfTypes)const { bsdfTypes=bsdfFlags; }
+    virtual void initBSDF(const renderState_t &state, surfacePoint_t &sp, unsigned int &bsdfTypes)const { bsdfTypes=bsdfFlags; }
 	virtual color_t eval(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, const vector3d_t &wl, BSDF_t bsdfs)const {return color_t(0.0);}
 	virtual color_t sample(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, vector3d_t &wi, sample_t &s, float &W)const;
 	virtual void getSpecular(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo,
@@ -406,7 +398,7 @@ class nullMat_t: public material_t
 {
 	public:
 	nullMat_t() { }
-	virtual void initBSDF(const renderState_t &state, const surfacePoint_t &sp, unsigned int &bsdfTypes)const { bsdfTypes=BSDF_NONE; }
+    virtual void initBSDF(const renderState_t &state, surfacePoint_t &sp, unsigned int &bsdfTypes)const { bsdfTypes=BSDF_NONE; }
 	virtual color_t eval(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, const vector3d_t &wl, BSDF_t bsdfs)const {return color_t(0.0);}
 	virtual color_t sample(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, vector3d_t &wi, sample_t &s, float &W)const;
 	static material_t* factory(paraMap_t &, std::list< paraMap_t > &, renderEnvironment_t &);

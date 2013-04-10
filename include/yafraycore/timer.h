@@ -7,14 +7,12 @@
 #include <string>
 #include <map>
 
-#ifndef WIN32
+#ifndef _WIN32
 extern "C" struct timeval;
 #include <sys/time.h>
 #endif
 
 __BEGIN_YAFRAY
-// #define YAFRAYCORE_EXPORT
-
 
 class YAFRAYCORE_EXPORT timer_t
 {

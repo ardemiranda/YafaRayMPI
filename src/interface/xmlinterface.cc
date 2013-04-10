@@ -59,7 +59,7 @@ bool xmlInterface_t::startGeometry() { return true; }
 bool xmlInterface_t::endGeometry() { return true; }
 
 unsigned int xmlInterface_t::getNextFreeID() {
-        return ++nextObj;
+	return ++nextObj;
 }
 
 
@@ -67,8 +67,14 @@ bool xmlInterface_t::startTriMesh(unsigned int id, int vertices, int triangles, 
 {
 	last_mat = 0;
 	n_uvs = 0;
-	xmlFile << "\n<mesh vertices=\"" << vertices << "\" faces=\"" << triangles
+	xmlFile << "\n<mesh id=\"" << id << "\" vertices=\"" << vertices << "\" faces=\"" << triangles
 			<< "\" has_orco=\"" << hasOrco << "\" has_uv=\"" << hasUV << "\" type=\"" << type <<"\">\n";
+	return true;
+}
+
+bool xmlInterface_t::startCurveMesh(unsigned int id, int vertices)
+{
+	xmlFile << "\n<curve id=\"" << id << "\" vertices=\"" << vertices <<"\">\n";
 	return true;
 }
 
@@ -88,17 +94,35 @@ bool xmlInterface_t::endTriMesh()
 	return true;
 }
 
+bool xmlInterface_t::endCurveMesh(const material_t *mat, float strandStart, float strandEnd, float strandShape)
+{
+	std::map<const material_t *, std::string>::const_iterator i;
+	i = materials.find(mat);
+	if(i == materials.end()) return false;
+	xmlFile << "\t\t\t<set_material sval=\"" << i->second << "\"/>\n"
+			<< "\t\t\t<strand_start fval=\"" << strandStart << "\"/>\n"
+			<< "\t\t\t<strand_end fval=\"" << strandEnd << "\"/>\n"
+			<< "\t\t\t<strand_shape fval=\"" << strandShape << "\"/>\n"
+			<< "</curve>\n"; 
+	return true;
+}
+
 int  xmlInterface_t::addVertex(double x, double y, double z)
 {
 	xmlFile << "\t\t\t<p x=\"" << x << "\" y=\"" << y << "\" z=\"" << z << "\"/>\n";
-	return true;
+	return 0;
 }
 
 int  xmlInterface_t::addVertex(double x, double y, double z, double ox, double oy, double oz)
 {
 	xmlFile << "\t\t\t<p x=\"" << x << "\" y=\"" << y << "\" z=\"" << z
 			<< "\" ox=\"" << ox << "\" oy=\"" << oy << "\" oz=\"" << oz << "\"/>\n";
-	return true;
+	return 0;
+}
+
+void xmlInterface_t::addNormal(double x, double y, double z)
+{
+	xmlFile << "\t\t\t<n x=\"" << x << "\" y=\"" << y << "\" z=\"" << z << "\"/>\n";
 }
 
 bool xmlInterface_t::addTriangle(int a, int b, int c, const material_t *mat)
@@ -135,13 +159,6 @@ int xmlInterface_t::addUV(float u, float v)
 	xmlFile << "\t\t\t<uv u=\"" << u << "\" v=\"" << v << "\"/>\n";
 	return n_uvs++;
 }
-
-bool xmlInterface_t::startVmap(int id, int type, int dimensions)
-{
-	return false;
-}
-bool xmlInterface_t::endVmap(){ return false; }
-bool xmlInterface_t::addVmapValues(float *val){ return false; }
 
 bool xmlInterface_t::smoothMesh(unsigned int id, double angle)
 {
@@ -189,6 +206,14 @@ void writeMatrix(const std::string &name, const matrix4x4_t &m, std::ofstream &x
 						   << " m10=\"" << m[1][0] << "\" m11=\"" << m[1][1] << "\" m12=\"" << m[1][2]  << "\" m13=\"" << m[1][3] << "\""
 						   << " m20=\"" << m[2][0] << "\" m21=\"" << m[2][1] << "\" m22=\"" << m[2][2]  << "\" m23=\"" << m[2][3] << "\""
 						   << " m30=\"" << m[3][0] << "\" m31=\"" << m[3][1] << "\" m32=\"" << m[3][2]  << "\" m33=\"" << m[3][3] << "\"/>";
+}
+
+bool xmlInterface_t::addInstance(unsigned int baseObjectId, matrix4x4_t objToWorld)
+{
+	xmlFile << "\n<instance base_object_id=\"" << baseObjectId << "\" >\n\t";
+	writeMatrix("transform",objToWorld,xmlFile);
+	xmlFile << "\n</instance>\n";
+	return true;
 }
 
 void xmlInterface_t::writeParamMap(const paraMap_t &pmap, int indent)

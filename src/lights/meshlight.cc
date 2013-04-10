@@ -125,7 +125,9 @@ bool meshLight_t::illumSample(const surfacePoint_t &sp, lSample_t &s, ray_t &wi)
 	
 	s.col = color;
 	// pdf = distance^2 / area * cos(norm, ldir);
-	s.pdf = dist_sqr*M_PI / (area * cos_angle);
+	float area_mul_cosangle = area * cos_angle;
+	//TODO: replace the hardcoded value (1e-8f) by a macro for min/max values: here used, to avoid dividing by zero
+	s.pdf = dist_sqr*M_PI / ((area_mul_cosangle == 0.f)?1e-8f:area_mul_cosangle);
 	s.flags = flags;
 	if(s.sp)
 	{
@@ -179,12 +181,12 @@ bool meshLight_t::intersect(const ray_t &ray, PFLOAT &t, color_t &col, float &ip
 {
 	if(!tree) return false;
 	PFLOAT dis;
-	unsigned char udat[PRIM_DAT_SIZE];
+	intersectData_t bary;
 	triangle_t *hitt=0;
 	if(ray.tmax<0) dis=std::numeric_limits<PFLOAT>::infinity();
 	else dis=ray.tmax;
 	// intersect with tree:
-	if( ! tree->Intersect(ray, dis, &hitt, t, (void*)&udat[0]) ){ return false; }
+	if( ! tree->Intersect(ray, dis, &hitt, t, bary) ){ return false; }
 	
 	vector3d_t n = hitt->getNormal();
 	PFLOAT cos_angle = ray.dir*(-n);

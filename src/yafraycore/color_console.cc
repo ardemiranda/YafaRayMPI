@@ -2,7 +2,6 @@
  *      color_console.cc: A console coloring utility
  *      This is part of the yafray package
  *      Copyright (C) 2010 Rodrigo Placencia Vazquez
- *		(pixel_t class wa originally written by someone else, don't know exactly who)
  *
  *      This library is free software; you can redistribute it and/or
  *      modify it under the terms of the GNU Lesser General Public
@@ -20,10 +19,8 @@
  */
  
 #include <yafray_config.h>
+
 #ifdef _WIN32
-	#ifndef __MINGW32__
-		#define NOMINMAX
-	#endif
 	#include <windows.h>
 #endif
 

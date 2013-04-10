@@ -26,8 +26,8 @@
 __BEGIN_YAFRAY
 
 orthoCam_t::orthoCam_t(const point3d_t &pos, const point3d_t &look, const point3d_t &up,
-		int _resx, int _resy, PFLOAT aspect, PFLOAT _scale)
-		:camera_t(pos, look, up, _resx, _resy, aspect), scale(_scale)
+        int _resx, int _resy, PFLOAT aspect, PFLOAT _scale, float const near_clip_distance, float const far_clip_distance)
+        :camera_t(pos, look, up, _resx, _resy, aspect, near_clip_distance, far_clip_distance), scale(_scale)
 {
 	// Initialize camera specific plane coordinates
 	setAxis(camX,camY,camZ);
@@ -54,6 +54,10 @@ ray_t orthoCam_t::shootRay(PFLOAT px, PFLOAT py, float lu, float lv, PFLOAT &wt)
 	wt = 1;	// for now always 1, except 0 for probe when outside sphere
 	ray.from = pos + vright*px + vup*py;
 	ray.dir = vto;
+
+    ray.tmin = ray_plane_intersection(ray, near_plane);
+    ray.tmax = ray_plane_intersection(ray, far_plane);
+
 	return ray;
 }
 
@@ -79,6 +83,8 @@ camera_t* orthoCam_t::factory(paraMap_t &params, renderEnvironment_t &render)
 	point3d_t from(0,1,0), to(0,0,0), up(0,1,1);
 	int resx=320, resy=200;
 	double aspect=1.0, scale=1.0;
+    float nearClip = 0.0f, farClip = -1.0f;
+
 	params.getParam("from", from);
 	params.getParam("to", to);
 	params.getParam("up", up);
@@ -86,8 +92,12 @@ camera_t* orthoCam_t::factory(paraMap_t &params, renderEnvironment_t &render)
 	params.getParam("resy", resy);
 	params.getParam("scale", scale);
 	params.getParam("aspect_ratio", aspect);
+    params.getParam("nearClip", nearClip);
+    params.getParam("farClip", farClip);
 
-	return new orthoCam_t(from, to, up, resx, resy, aspect, scale);
+    orthoCam_t* cam = new orthoCam_t(from, to, up, resx, resy, aspect, scale, nearClip, farClip);
+
+    return cam;
 }
 
 extern "C"

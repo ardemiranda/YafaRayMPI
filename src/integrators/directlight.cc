@@ -49,7 +49,6 @@ directLighting_t::directLighting_t(bool transpShad, int shadowDepth, int rayDept
 	usePhotonCaustics = false;
 	sDepth = shadowDepth;
 	rDepth = rayDepth;
-	intpb = 0;
 	integratorName = "DirectLight";
 	integratorShortName = "DL";
 }
@@ -59,14 +58,14 @@ bool directLighting_t::preprocess()
 	bool success = true;
 	std::stringstream set;
 	settings = "";
-	
+
 	if(trShad)
 	{
 		set << "ShadowDepth: [" << sDepth << "]";
 	}
 	if(!set.str().empty()) set << "+";
 	set << "RayDepth: [" << rDepth << "]";
-	
+
 	background = scene->getBackground();
 	lights = scene->lights;
 
@@ -76,13 +75,13 @@ bool directLighting_t::preprocess()
 		if(!set.str().empty()) set << "+";
 		set << "Caustics:" << nCausPhotons << " photons. ";
 	}
-	
+
 	if(useAmbientOcclusion)
 	{
 		if(!set.str().empty()) set << "+";
 		set << "AO";
 	}
-	
+
 	settings = set.str();
 
 	return success;
@@ -91,13 +90,16 @@ bool directLighting_t::preprocess()
 colorA_t directLighting_t::integrate(renderState_t &state, diffRay_t &ray) const
 {
 	color_t col(0.0);
-	float alpha = 0.0;
+	float alpha;
 	surfacePoint_t sp;
 	void *o_udat = state.userdata;
 	bool oldIncludeLights = state.includeLights;
 
+	if(transpBackground) alpha=0.0;
+	else alpha=1.0;
+
 	// Shoot ray into scene
-	
+
 	if(scene->intersect(ray, sp)) // If it hits
 	{
 		unsigned char userdata[USER_DATA_SIZE];
@@ -107,28 +109,32 @@ colorA_t directLighting_t::integrate(renderState_t &state, diffRay_t &ray) const
 		state.userdata = (void *) userdata;
 		vector3d_t wo = -ray.dir;
 		if(state.raylevel == 0) state.includeLights = true;
-		
+
 		material->initBSDF(state, sp, bsdfs);
-		
+
 		if(bsdfs & BSDF_EMIT) col += material->emit(state, sp, wo);
-		
+
 		if(bsdfs & BSDF_DIFFUSE)
 		{
 			col += estimateAllDirectLight(state, sp, wo);
 			if(usePhotonCaustics) col += estimateCausticPhotons(state, sp, wo);
 			if(useAmbientOcclusion) col += sampleAmbientOcclusion(state, sp, wo);
 		}
-		
+
 		recursiveRaytrace(state, ray, bsdfs, sp, wo, col, alpha);
-		
-		float m_alpha = material->getAlpha(state, sp, wo);
-		alpha = m_alpha + (1.f - m_alpha) * alpha;
+
+		if(transpRefractedBackground)
+		{
+			float m_alpha = material->getAlpha(state, sp, wo);
+			alpha = m_alpha + (1.f - m_alpha) * alpha;
+		}
+		else alpha = 1.0;
 	}
 	else // Nothing hit, return background if any
 	{
 		if(background) col += (*background)(ray, state, false);
 	}
-	
+
 	state.userdata = o_udat;
 	state.includeLights = oldIncludeLights;
 	return colorA_t(col, alpha);
@@ -146,7 +152,9 @@ integrator_t* directLighting_t::factory(paraMap_t &params, renderEnvironment_t &
 	double cRad = 0.25;
 	double AO_dist = 1.0;
 	color_t AO_col(1.f);
-	
+	bool bg_transp = true;
+	bool bg_transp_refract = true;
+
 	params.getParam("raydepth", raydepth);
 	params.getParam("transpShad", transpShad);
 	params.getParam("shadowDepth", shadowDepth);
@@ -159,7 +167,9 @@ integrator_t* directLighting_t::factory(paraMap_t &params, renderEnvironment_t &
 	params.getParam("AO_samples", AO_samples);
 	params.getParam("AO_distance", AO_dist);
 	params.getParam("AO_color", AO_col);
-	
+	params.getParam("bg_transp", bg_transp);
+	params.getParam("bg_transp_refract", bg_transp_refract);
+
 	directLighting_t *inte = new directLighting_t(transpShad, shadowDepth, raydepth);
 	// caustic settings
 	inte->usePhotonCaustics = caustics;
@@ -172,6 +182,10 @@ integrator_t* directLighting_t::factory(paraMap_t &params, renderEnvironment_t &
 	inte->aoSamples = AO_samples;
 	inte->aoDist = AO_dist;
 	inte->aoCol = AO_col;
+	// Background settings
+	inte->transpBackground = bg_transp;
+	inte->transpRefractedBackground = bg_transp_refract;
+	
 	return inte;
 }
 

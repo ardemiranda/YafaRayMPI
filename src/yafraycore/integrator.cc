@@ -109,7 +109,7 @@ void tiledIntegrator_t::precalcDepths()
 	int h = camera->resY();
 	float wt = 0.f; // Dummy variable
 	surfacePoint_t sp;
-	
+
 	for(int i=0; i<h; ++i)
 	{
 		for(int j=0; j<w; ++j)
@@ -142,12 +142,12 @@ bool tiledIntegrator_t::render(imageFilm_t *image)
 	gTimer.addEvent("rendert");
 	gTimer.start("rendert");
 	imageFilm->init(AA_passes);
-	
+
 	maxDepth = 0.f;
 	minDepth = 1e38f;
 
 	if(scene->doDepth()) precalcDepths();
-	
+
 	preRender();
 
 	renderPass(AA_samples, 0, false);
@@ -169,7 +169,7 @@ bool tiledIntegrator_t::render(imageFilm_t *image)
 bool tiledIntegrator_t::renderPass(int samples, int offset, bool adaptive)
 {
 	prePass(samples, offset, adaptive);
-	
+
 	int nthreads = scene->getNumThreads();
 
 #ifdef USING_MPI
@@ -230,7 +230,7 @@ bool tiledIntegrator_t::renderPass(int samples, int offset, bool adaptive)
 		}
 		tc.countCV.unlock();
 		//join all threads (although they probably have exited already, but not necessarily):
-		for(int i=0;i<nthreads;++i) delete workers[i];
+		for(int i=0;i<nthreads;++i) {workers[i]->wait(); delete workers[i];} //Fix for Linux hangs/crashes, it's better to wait for threads to end before deleting the thread objects. Using code to wait for the threads to end in the destructors is not recommended.
 	}
 	else
 	{
@@ -259,12 +259,11 @@ bool tiledIntegrator_t::renderPass(int samples, int offset, bool adaptive)
 }
 
 bool tiledIntegrator_t::renderTile(renderArea_t &a, int n_samples, int offset, bool adaptive, int threadID)
-{	
-	int x, y;
+{
+	int x;
 	const camera_t* camera = scene->getCamera();
 	bool do_depth = scene->doDepth();
 	x=camera->resX();
-	y=camera->resY();
 	diffRay_t c_ray;
 	ray_t d_ray;
 	PFLOAT dx=0.5, dy=0.5, d1=1.0/(PFLOAT)n_samples;
@@ -294,7 +293,7 @@ bool tiledIntegrator_t::renderTile(renderArea_t &a, int n_samples, int offset, b
 			rstate.pixelNumber = x*i+j;
 			rstate.samplingOffs = fnv_32a_buf(i*fnv_32a_buf(j));//fnv_32a_buf(rstate.pixelNumber);
 			float toff = scrHalton(5, pass_offs+rstate.samplingOffs); // **shall be just the pass number...**
-			
+
 			halU.setStart(pass_offs+rstate.samplingOffs);
 			halV.setStart(pass_offs+rstate.samplingOffs);
 
@@ -303,7 +302,7 @@ bool tiledIntegrator_t::renderTile(renderArea_t &a, int n_samples, int offset, b
 				rstate.setDefaults();
 				rstate.pixelSample = pass_offs+sample;
 				rstate.time = addMod1((PFLOAT)sample*d1, toff);//(0.5+(PFLOAT)sample)*d1;
-				
+
 				// the (1/n, Larcher&Pillichshammer-Seq.) only gives good coverage when total sample count is known
 				// hence we use scrambled (Sobol, van-der-Corput) for multipass AA
 				if(AA_passes>1)
@@ -341,7 +340,7 @@ bool tiledIntegrator_t::renderTile(renderArea_t &a, int n_samples, int offset, b
 				col *= scene->volIntegrator->transmittance(rstate, c_ray); // T
 				col += scene->volIntegrator->integrate(rstate, c_ray); // L_v
 				imageFilm->addSample(wt * col, j, i, dx, dy, &a);
-				
+
 				if(do_depth)
 				{
 					float depth = 0.f;
@@ -349,7 +348,7 @@ bool tiledIntegrator_t::renderTile(renderArea_t &a, int n_samples, int offset, b
 					{
 						depth = 1.f - (c_ray.tmax - minDepth) * maxDepth; // Distance normalization
 					}
-					
+
 					imageFilm->addDepthSample(0, depth, j, i, dx, dy);
 				}
 			}

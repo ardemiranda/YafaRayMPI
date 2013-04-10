@@ -32,53 +32,33 @@ class light_t;
 class object3d_t;
 class diffRay_t;
 
-/*
-struct YAFRAYCORE_EXPORT surfacePoint_t
+struct intersectData_t
 {
-		surfacePoint_t(const point3d_t &p, const point3d_t &orc,
-				const vector3d_t &n,const vector3d_t &g,
-				GFLOAT u, GFLOAT v, color_t vcol,
-				PFLOAT d,const shader_t *sha=NULL,
-				bool uv=false, bool hvcol=false,bool horco=false)
-		{	P=p;  N=n;  Ng=g;
-			U=u;  V=v;  vertex_col=vcol;
-			Z=d;  object=-1; shader=sha;  hasUV=uv;  hasVertexCol=hvcol;
-			hasOrco=horco;
-			orcoP=orc;
-			createCS(N,NU,NV);
-			dudNU=dudNV=dvdNU=dvdNV=0;
-			origin=NULL;
-		}
-
-		surfacePoint_t() { hasOrco=false;hasUV=false;  hasVertexCol=false;  shader=NULL; origin=NULL; }
-
-		vector3d_t N; /// the normal.
-		vector3d_t Ng; /// the geometric normal.
-		point3d_t P; /// the position.
-		point3d_t orcoP;
-		GFLOAT U; /// the u texture coord.
-		GFLOAT V; /// the v texture coord.
-		bool hasUV; /// whatever it has valid UV or not
-		bool hasVertexCol; /// if the point has a valid vertex color
-		bool hasOrco;
-		color_t vertex_col;
-		PFLOAT Z;
-		int object; /// the object owner of the point.
-		const shader_t *shader; /// the surface shader
-		vector3d_t  NU;
-		vector3d_t  NV;
-		GFLOAT dudNU;
-		GFLOAT dudNV;
-		GFLOAT dvdNU;
-		GFLOAT dvdNV;
-		void setUvGradient(GFLOAT uu, GFLOAT uv, GFLOAT vu, GFLOAT vv)
-		{ dudNU=uu;  dudNV=uv;  dvdNU=vu;  dvdNV=vv; }
-
-		point2d_t screenpos; // only used with 'win' texture coord. mode
-		void *origin;
+	float b0;
+	float b1;
+	float b2;
+	float t;
+	
+	intersectData_t() : b0(0.f), b1(0.f), b2(0.f), t(0.f)
+	{
+		// Empty
+	}
+	
+	inline void calcB0()
+	{
+		b0 = 1.0 - b1 - b2;
+	}
+	
+	inline intersectData_t & operator = (intersectData_t &in)
+	{
+		b0 = in.b0;
+		b1 = in.b1;
+		b2 = in.b2;
+		t = in.t;
+		
+		return *this;
+	}
 };
-
-*/
 
 /*! This holds a sampled surface point's data
 	When a ray intersects an object, a surfacePoint_t is computed.
@@ -95,7 +75,7 @@ struct YAFRAYCORE_EXPORT surfacePoint_t
 	void *origin;
 	
 	// Geometry related
-	mutable vector3d_t N; //!< the shading normal.
+    vector3d_t N; //!< the shading normal.
 	vector3d_t Ng; //!< the geometric normal.
 	vector3d_t orcoNg; //!< the untransformed geometric normal.
 	point3d_t P; //!< the (world) position.
@@ -108,19 +88,19 @@ struct YAFRAYCORE_EXPORT surfacePoint_t
 
 	GFLOAT U; //!< the u texture coord.
 	GFLOAT V; //!< the v texture coord.
-	mutable vector3d_t  NU; //!< second vector building orthogonal shading space with N
-	mutable vector3d_t  NV; //!< third vector building orthogonal shading space with N
+    vector3d_t  NU; //!< second vector building orthogonal shading space with N
+    vector3d_t  NV; //!< third vector building orthogonal shading space with N
 	vector3d_t dPdU; //!< u-axis in world space
 	vector3d_t dPdV; //!< v-axis in world space
 	vector3d_t dSdU; //!< u-axis in shading space (NU, NV, N)
 	vector3d_t dSdV; //!< v-axis in shading space (NU, NV, N)
-	GFLOAT sU; //!< raw surface parametric coordinate; required to evaluate vmaps
-	GFLOAT sV; //!< raw surface parametric coordinate; required to evaluate vmaps
 	//GFLOAT dudNU;
 	//GFLOAT dudNV;
 	//GFLOAT dvdNU;
 	//GFLOAT dvdNV;
 };
+
+YAFRAYCORE_EXPORT surfacePoint_t blend_surface_points(surfacePoint_t const& sp_0, surfacePoint_t const& sp_1, float const alpha);
 
 /*! computes and stores the additional data for surface intersections for
 	differential rays */

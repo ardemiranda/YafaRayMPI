@@ -2,7 +2,6 @@
 #ifndef Y_YAFRAYINTERFACE_H
 #define Y_YAFRAYINTERFACE_H
 
-//#include <core_api/params.h>
 #include <yafray_constants.h>
 #include <yaf_revision.h>
 #include <list>
@@ -26,6 +25,7 @@ class paraMap_t;
 class imageFilm_t;
 class imageHandler_t;
 class progressBar_t;
+class matrix4x4_t;
 
 class YAFRAYPLUGIN_EXPORT yafrayInterface_t
 {
@@ -48,10 +48,12 @@ class YAFRAYPLUGIN_EXPORT yafrayInterface_t
 		virtual bool endCurveMesh(const material_t *mat, float strandStart, float strandEnd, float strandShape); //!< end current mesh and return to geometry state
 		virtual int  addVertex(double x, double y, double z); //!< add vertex to mesh; returns index to be used for addTriangle
 		virtual int  addVertex(double x, double y, double z, double ox, double oy, double oz); //!< add vertex with Orco to mesh; returns index to be used for addTriangle
+		virtual void addNormal(double nx, double ny, double nz); //!< add vertex normal to mesh; the vertex that will be attached to is the last one inserted by addVertex method
 		virtual bool addTriangle(int a, int b, int c, const material_t *mat); //!< add a triangle given vertex indices and material pointer
 		virtual bool addTriangle(int a, int b, int c, int uv_a, int uv_b, int uv_c, const material_t *mat); //!< add a triangle given vertex and uv indices and material pointer
 		virtual int  addUV(float u, float v); //!< add a UV coordinate pair; returns index to be used for addTriangle
 		virtual bool smoothMesh(unsigned int id, double angle); //!< smooth vertex normals of mesh with given ID and angle (in degrees)
+		virtual bool addInstance(unsigned int baseObjectId, matrix4x4_t objToWorld);
 		// functions to build paramMaps instead of passing them from Blender
 		// (decouling implementation details of STL containers, paraMap_t etc. as much as possible)
 		virtual void paramsSetPoint(const char* name, double x, double y, double z);
@@ -91,6 +93,12 @@ class YAFRAYPLUGIN_EXPORT yafrayInterface_t
 		virtual std::string getImageFormatFromFullName(const std::string &fullname);
 		virtual std::string getImageFullNameFromFormat(const std::string &format);
 		
+		virtual void setVerbosityLevel(int vlevel);
+		virtual void setVerbosityInfo();
+		virtual void setVerbosityWarning();
+		virtual void setVerbosityError();
+		virtual void setVerbosityMute();
+		
 		virtual void setDrawParams(bool on = true);
 		virtual bool getDrawParams();
 
@@ -100,6 +108,7 @@ class YAFRAYPLUGIN_EXPORT yafrayInterface_t
 		void printInfo(const std::string &msg);
 		void printWarning(const std::string &msg);
 		void printError(const std::string &msg);
+		void printLog(const std::string &msg);
 	
 	protected:
 		paraMap_t *params;

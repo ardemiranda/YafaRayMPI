@@ -4,6 +4,7 @@
 #include <core_api/scene.h>
 #include <core_api/imagefilm.h>
 #include <core_api/integrator.h>
+#include <core_api/matrix4.h>
 
 __BEGIN_YAFRAY
 
@@ -118,7 +119,12 @@ int  yafrayInterface_t::addVertex(double x, double y, double z) { return scene->
 
 int  yafrayInterface_t::addVertex(double x, double y, double z, double ox, double oy, double oz)
 {
-	return scene->addVertex( point3d_t(x,y,z), point3d_t(ox,oy,oz) );
+	return scene->addVertex(point3d_t(x,y,z), point3d_t(ox,oy,oz));
+}
+
+void yafrayInterface_t::addNormal(double x, double y, double z)
+{
+	scene->addNormal( normal_t(x,y,z) );
 }
 
 bool yafrayInterface_t::addTriangle(int a, int b, int c, const material_t *mat) { return scene->addTriangle(a, b, c, mat); }
@@ -132,6 +138,10 @@ int yafrayInterface_t::addUV(float u, float v) { return scene->addUV(u, v); }
 
 bool yafrayInterface_t::smoothMesh(unsigned int id, double angle) { return scene->smoothMesh(id, angle); }
 
+bool yafrayInterface_t::addInstance(unsigned int baseObjectId, matrix4x4_t objToWorld)
+{
+	return scene->addInstance(baseObjectId, objToWorld);
+}
 // paraMap_t related functions:
 void yafrayInterface_t::paramsSetPoint(const char* name, double x, double y, double z)
 {
@@ -318,6 +328,11 @@ void yafrayInterface_t::printError(const std::string &msg)
 	Y_ERROR << msg << yendl;
 }
 
+void yafrayInterface_t::printLog(const std::string &msg)
+{
+	Y_LOG << msg << yendl;
+}
+
 void yafrayInterface_t::render(colorOutput_t &output, progressBar_t *pb)
 {
 	if(! env->setupScene(*scene, *params, output, pb) ) return;
@@ -340,6 +355,30 @@ bool yafrayInterface_t::getDrawParams()
 	else params->getParam("drawParams", dp);
 	
 	return dp;
+}
+void yafrayInterface_t::setVerbosityLevel(int vlevel)
+{
+	yafout.setMasterVerbosity(vlevel);
+}
+
+void yafrayInterface_t::setVerbosityInfo()
+{
+	yafout.setMasterVerbosity(VL_INFO);
+}
+
+void yafrayInterface_t::setVerbosityWarning()
+{
+	yafout.setMasterVerbosity(VL_WARNING);
+}
+
+void yafrayInterface_t::setVerbosityError()
+{
+	yafout.setMasterVerbosity(VL_ERROR);
+}
+
+void yafrayInterface_t::setVerbosityMute()
+{
+	yafout.setMasterVerbosity(VL_MUTE);
 }
 
 // export "factory"...

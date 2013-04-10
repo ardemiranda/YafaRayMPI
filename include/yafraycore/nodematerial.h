@@ -18,7 +18,9 @@ class YAFRAYCORE_EXPORT nodeMaterial_t: public material_t
 		nodeMaterial_t(): reqNodeMem(0){}
 	protected:
 		/*! load nodes from parameter map list */
-		bool loadNodes(const std::list<paraMap_t> &eparams, renderEnvironment_t &render);
+		bool loadNodes(const std::list<paraMap_t> &paramsList, renderEnvironment_t &render);
+        /** parse node shaders to fill nodeList */
+        void parseNodes(const paraMap_t &params, std::vector<shaderNode_t *> &roots, std::map<std::string, shaderNode_t *> &nodeList);
 		/* put nodes in evaluation order in "allSorted" given all root nodes;
 		   sets reqNodeMem to the amount of memory the node stack requires for evaluation of all nodes */
 		void solveNodesOrder(const std::vector<shaderNode_t *> &roots);
@@ -28,13 +30,13 @@ class YAFRAYCORE_EXPORT nodeMaterial_t: public material_t
 			std::vector<shaderNode_t *>::const_iterator iter, end=nodes.end();
 			for(iter = nodes.begin(); iter!=end; ++iter) (*iter)->eval(stack, state, sp);
 		}
-		void evalBump(nodeStack_t &stack, const renderState_t &state, const surfacePoint_t &sp, const shaderNode_t *bumpS)const;
+        void evalBump(nodeStack_t &stack, const renderState_t &state, surfacePoint_t &sp, const shaderNode_t *bumpS)const;
 		/*! filter out nodes with specific properties */
 		void filterNodes(const std::vector<shaderNode_t *> &input, std::vector<shaderNode_t *> &output, int flags);
 		virtual ~nodeMaterial_t();
 		
 		std::vector<shaderNode_t *> allNodes, allSorted, allViewdep, allViewindep, bumpNodes;
-		std::map<std::string,shaderNode_t *> shader_table;
+		std::map<std::string,shaderNode_t *> mShadersTable;
 		size_t reqNodeMem;
 };
 

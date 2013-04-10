@@ -9,13 +9,21 @@
 #include <core_api/volume.h>
 #include <yafraycore/ccthreads.h>
 #include <vector>
+#include <core_api/matrix4.h>
 
 
 #define USER_DATA_SIZE 1024
-#define TRIM 0
-#define VTRIM 1
-#define MTRIM 2
-#define INVISIBLEM (1<<8)
+
+// Object flags
+
+// Lower order byte indicates type
+#define TRIM		0x0000
+#define VTRIM		0x0001
+#define MTRIM		0x0002
+
+// Higher order byte indicates options
+#define INVISIBLEM	0x0100
+#define BASEMESH	0x0200
 
 __BEGIN_YAFRAY
 class scene_t;
@@ -112,7 +120,25 @@ __BEGIN_YAFRAY
 	for general geometric primitives there will most likely be a separate class
 	to keep this one as optimized as possible;
 */
-	
+struct objData_t
+{
+	triangleObject_t *obj;
+	meshObject_t *mobj;
+	int type;
+	size_t lastVertId;
+};
+
+struct sceneGeometryState_t
+{
+	std::list<unsigned int> stack;
+	unsigned int changes;
+	objID_t nextFreeID;
+	objData_t *curObj;
+	triangle_t *curTri;
+	bool orco;
+	float smooth_angle;
+};
+
 class YAFRAYCORE_EXPORT scene_t
 {
 	public:
@@ -129,6 +155,7 @@ class YAFRAYCORE_EXPORT scene_t
 		bool endCurveMesh(const material_t *mat, float strandStart, float strandEnd, float strandShape);
 		int  addVertex(const point3d_t &p);
 		int  addVertex(const point3d_t &p, const point3d_t &orco);
+		void addNormal(const normal_t &n);
 		bool addTriangle(int a, int b, int c, const material_t *mat);
 		bool addTriangle(int a, int b, int c, int uv_a, int uv_b, int uv_c, const material_t *mat);
 		int  addUV(GFLOAT u, GFLOAT v);
@@ -142,6 +169,7 @@ class YAFRAYCORE_EXPORT scene_t
 		bool addMaterial(material_t *m, const char* name);
 		objID_t getNextFreeID();
 		bool addObject(object3d_t *obj, objID_t &id);
+        bool addInstance(objID_t baseObjectId, matrix4x4_t objToWorld);
 		void addVolumeRegion(VolumeRegion* vr) { volumes.push_back(vr); }
 		void setCamera(camera_t *cam);
 		void setImageFilm(imageFilm_t *film);
@@ -178,29 +206,11 @@ class YAFRAYCORE_EXPORT scene_t
 		volumeIntegrator_t *volIntegrator;
 		
 	protected:
-		
-		struct objData_t
-		{
-			triangleObject_t *obj;
-			meshObject_t *mobj;
-			std::vector<point3d_t> points;
-			std::vector<normal_t> normals;
-			int type;
-		};
-		struct scState_t
-		{
-			std::list<sceneState> stack;
-			unsigned int changes;
-			objID_t nextFreeID;
-			objData_t *curObj;
-			triangle_t *curTri;
-			bool orco;
-			float smooth_angle;
-		} state;
-		
+
+		sceneGeometryState_t state;
 		std::map<objID_t, object3d_t *> objects;
 		std::map<objID_t, objData_t> meshes;
-		std::map< std::string, material_t * > materials;
+        std::map< std::string, material_t * > materials;
 		std::vector<VolumeRegion *> volumes;
 		camera_t *camera;
 		imageFilm_t *imageFilm;
